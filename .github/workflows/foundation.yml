@@ -24,3 +24,35 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+  docker-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose configuration
+        env:
+          POSTGRES_PASSWORD: ci-temporary-password
+        run: docker compose config --quiet
+      - name: Build and start all services
+        env:
+          POSTGRES_PASSWORD: ci-temporary-password
+        run: docker compose up --build -d --wait
+      - name: Verify API and dependency readiness
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused http://localhost:8000/health
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused http://localhost:8000/ready
+      - name: Verify SvelteKit response
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused http://localhost:3000/ | grep -q Tourgull
+      - name: Report service status
+        if: always()
+        env:
+          POSTGRES_PASSWORD: ci-temporary-password
+        run: docker compose ps
+      - name: Tear down test environment
+        if: always()
+        env:
+          POSTGRES_PASSWORD: ci-temporary-password
+        run: docker compose down -v --remove-orphans
