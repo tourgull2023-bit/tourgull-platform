@@ -1,0 +1,33 @@
+services:
+  frontend:
+    build: ./frontend
+    ports: ['3000:3000']
+    depends_on: [backend]
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://tourgull:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/tourgull
+      REDIS_URL: redis://redis:6379/0
+    ports: ['8000:8000']
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tourgull
+      POSTGRES_USER: tourgull
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tourgull -d tourgull']
+      interval: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      retries: 10
+volumes:
+  pgdata:
