@@ -10,10 +10,11 @@ from app.models import PlatformSetting
 def test_migration_has_single_head():
     config = Config(str(Path(__file__).resolve().parents[1] / 'alembic.ini'))
     scripts = ScriptDirectory.from_config(config)
-    assert scripts.get_heads() == ['003_membership_issuer']
+    assert scripts.get_heads() == ['004_security_audit']
     assert scripts.get_revision('001_platform_settings').down_revision is None
     assert scripts.get_revision('002_trusted_memberships').down_revision == '001_platform_settings'
     assert scripts.get_revision('003_membership_issuer').down_revision == '002_trusted_memberships'
+    assert scripts.get_revision('004_security_audit').down_revision == '003_membership_issuer'
 
 
 def test_foundation_model_is_registered():
