@@ -43,7 +43,7 @@ def verify_bearer_token(authorization: str | None) -> AuthenticatedIdentity:
         signing_key = _jwk_client(jwks_url).get_signing_key_from_jwt(token)
         claims = jwt.decode(
             token, signing_key.key, algorithms=["RS256"], issuer=issuer,
-            audience=audience, options={"require": ["exp", "iat", "iss", "sub", "aud", "nbf"]},
+            audience=audience, options={"require": ["exp", "iat", "iss", "sub", "aud"]},
             leeway=30,
         )
     except (InvalidTokenError, ValueError, jwt.PyJWKClientError, OSError, TimeoutError) as exc:
