@@ -20,7 +20,7 @@ def upgrade():
         sa.UniqueConstraint("subject_id", "organization_id", "country_code", name="uq_membership_scope"),
         sa.CheckConstraint("status IN ('active','suspended','revoked')", name="ck_membership_status"),
         sa.CheckConstraint("role IN ('global_admin','country_admin','supplier_admin','guest')", name="ck_membership_role"),
-        sa.CheckConstraint("char_length(country_code) = 2 AND country_code = upper(country_code)", name="ck_membership_country"),
+        sa.CheckConstraint("length(country_code) = 2 AND country_code = upper(country_code)", name="ck_membership_country"),
     )
     op.create_index("ix_trusted_memberships_subject_id", "trusted_memberships", ["subject_id"])
     op.create_index("ix_trusted_memberships_organization_id", "trusted_memberships", ["organization_id"])
