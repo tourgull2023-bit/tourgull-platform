@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 from app.db import Base, database_url
 from app import models  # noqa: F401 - register model metadata
 from app import trusted_membership_model  # noqa: F401 - register membership metadata
+from app import security_audit_model  # noqa: F401 - register security audit metadata
 
 config = context.config
 if config.config_file_name and config.get_section(config.config_ini_section, {}).get('loggers'):
