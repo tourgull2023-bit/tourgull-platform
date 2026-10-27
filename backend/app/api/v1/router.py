@@ -13,6 +13,9 @@ def platform_metadata():
 
 # Explicitly protected authorization probe; never accepts role from the client.
 from fastapi import Header, HTTPException
+import logging
+from app.security_audit import record_access_decision
+from app import security_audit_model  # noqa: F401 - register audit schema
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from app.authentication import AuthenticationError, verify_bearer_token
@@ -35,6 +38,7 @@ def check_access(probe: AuthorizationProbe, authorization: str | None = Header(d
     try:
         identity = verify_bearer_token(authorization)
     except AuthenticationError:
+        logging.getLogger("tourgull.security").warning("authentication_denied")
         raise HTTPException(status_code=401, detail="Unauthenticated")
     request = AccessRequest(
         probe.module_number, probe.service_key, probe.operation,
@@ -45,6 +49,8 @@ def check_access(probe: AuthorizationProbe, authorization: str | None = Header(d
         try:
             with Session(engine) as session:
                 decision = evaluate_trusted_membership(session, identity, request)
+                record_access_decision(session, identity, decision)
+                session.commit()
         finally:
             engine.dispose()
     except Exception:
