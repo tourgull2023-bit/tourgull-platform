@@ -35,14 +35,8 @@ def test_verified_identity_authorized_only_for_its_database_scope(monkeypatch):
             organization_id="org-a", country_code="BD",
             role="supplier_admin", status="active"))
         session.commit()
-    class EngineProxy:
-        def __init__(self, underlying):
-            self.underlying = underlying
-        def connect(self):
-            return self.underlying.connect()
-        def dispose(self):
-            pass
-    monkeypatch.setattr(api, "create_db_engine", lambda: EngineProxy(engine))
+    monkeypatch.setattr(engine, "dispose", lambda: None)
+    monkeypatch.setattr(api, "create_db_engine", lambda: engine)
     monkeypatch.setattr(api, "verify_bearer_token",
                         lambda header: AuthenticatedIdentity("user-1", "https://id.example"))
     client = TestClient(app)
