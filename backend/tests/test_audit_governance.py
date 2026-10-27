@@ -46,5 +46,5 @@ def test_naive_clock_rejected():
 
 
 def test_no_public_retention_or_audit_read_endpoints():
-    paths = {route.path for route in app.routes}
+    paths = {route.path for route in app.routes if hasattr(route, 'path')}
     assert not any("/audit" in path or "/retention" in path for path in paths)
