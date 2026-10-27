@@ -32,7 +32,9 @@ def evaluate_trusted_membership(session: Session, identity: AuthenticatedIdentit
         if membership is None:
             return AccessDecision(False, "membership_not_found")
         role = Role(membership.role)
-    except (Exception,):
+    except ValueError:
+        return AccessDecision(False, "unknown_role")
+    except Exception:
         return AccessDecision(False, "membership_unavailable")
     return evaluate_access(
         Principal(identity.subject_id, role, membership.organization_id, membership.country_code),
