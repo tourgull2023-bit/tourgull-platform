@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           docker compose exec -T backend alembic -c alembic.ini upgrade head
-          docker compose exec -T backend alembic -c alembic.ini current | grep -q '004_security_audit'
+          docker compose exec -T backend alembic -c alembic.ini current | grep -q '005_audit_integrity'
           docker compose exec -T postgres psql -U tourgull -d tourgull -tAc "SELECT to_regclass('public.platform_settings') IS NOT NULL AND to_regclass('public.trusted_memberships') IS NOT NULL AND to_regclass('public.security_audit_events') IS NOT NULL" | grep -q t
       - name: Verify SvelteKit response
         run: |
