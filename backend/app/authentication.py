@@ -31,21 +31,22 @@ def verify_bearer_token(authorization: str | None) -> AuthenticatedIdentity:
     if not isinstance(authorization, str):
         raise AuthenticationError("unauthenticated")
     scheme, separator, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not separator or not token or len(token) > 8192:
+    if scheme.lower() != "bearer" or not separator or not token or len(token) > 8192 or any(ch.isspace() for ch in token):
         raise AuthenticationError("unauthenticated")
     issuer = os.getenv("TOURGULL_OIDC_ISSUER", "").rstrip("/")
     audience = os.getenv("TOURGULL_OIDC_AUDIENCE", "")
     jwks_url = os.getenv("TOURGULL_OIDC_JWKS_URL", "")
-    if not issuer or not audience or not jwks_url or not jwks_url.startswith("https://"):
+    if (not issuer.startswith("https://") or not audience or not jwks_url.startswith("https://")
+            or any(ch.isspace() for ch in (issuer + audience + jwks_url))):
         raise AuthenticationError("identity_provider_not_configured")
     try:
         signing_key = _jwk_client(jwks_url).get_signing_key_from_jwt(token)
         claims = jwt.decode(
             token, signing_key.key, algorithms=["RS256"], issuer=issuer,
-            audience=audience, options={"require": ["exp", "iat", "iss", "sub", "aud"]},
+            audience=audience, options={"require": ["exp", "iat", "iss", "sub", "aud", "nbf"]},
             leeway=30,
         )
-    except (InvalidTokenError, ValueError, jwt.PyJWKClientError, OSError) as exc:
+    except (InvalidTokenError, ValueError, jwt.PyJWKClientError, OSError, TimeoutError) as exc:
         raise AuthenticationError("unauthenticated") from exc
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject.strip():
