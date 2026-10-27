@@ -6,9 +6,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.access_policy import AccessDecision, AccessRequest, Principal, Role, evaluate_access
 from app.trusted_membership_model import TrustedMembership
+from app.authentication import AuthenticatedIdentity
 
-def evaluate_trusted_membership(session: Session, authenticated_subject_id: str, request: AccessRequest) -> AccessDecision:
-    if not isinstance(authenticated_subject_id, str) or not authenticated_subject_id.strip():
+def evaluate_trusted_membership(session: Session, identity: AuthenticatedIdentity, request: AccessRequest) -> AccessDecision:
+    if (not isinstance(identity, AuthenticatedIdentity) or not isinstance(identity.subject_id, str)
+            or not identity.subject_id.strip() or not isinstance(identity.issuer, str)
+            or not identity.issuer.startswith("https://")):
         return AccessDecision(False, "unauthenticated")
     if not isinstance(request, AccessRequest):
         return AccessDecision(False, "invalid_context")
@@ -19,7 +22,8 @@ def evaluate_trusted_membership(session: Session, authenticated_subject_id: str,
     try:
         membership = session.execute(
             select(TrustedMembership).where(
-                TrustedMembership.subject_id == authenticated_subject_id,
+                TrustedMembership.subject_id == identity.subject_id,
+                TrustedMembership.issuer == identity.issuer,
                 TrustedMembership.organization_id == request.organization_id,
                 TrustedMembership.country_code == request.country_code,
                 TrustedMembership.status == "active",
@@ -31,6 +35,6 @@ def evaluate_trusted_membership(session: Session, authenticated_subject_id: str,
     except (Exception,):
         return AccessDecision(False, "membership_unavailable")
     return evaluate_access(
-        Principal(authenticated_subject_id, role, membership.organization_id, membership.country_code),
+        Principal(identity.subject_id, role, membership.organization_id, membership.country_code),
         request,
     )
