@@ -50,6 +50,12 @@ jobs:
           set -euo pipefail
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused http://localhost:8000/health
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused http://localhost:8000/ready
+      - name: Apply and verify PostgreSQL migrations
+        run: |
+          set -euo pipefail
+          docker compose exec -T backend alembic -c alembic.ini upgrade head
+          docker compose exec -T backend alembic -c alembic.ini current | grep -q '001_platform_settings'
+          docker compose exec -T postgres psql -U tourgull -d tourgull -tAc "SELECT to_regclass('public.platform_settings') IS NOT NULL" | grep -q t
       - name: Verify SvelteKit response
         run: |
           set -euo pipefail
