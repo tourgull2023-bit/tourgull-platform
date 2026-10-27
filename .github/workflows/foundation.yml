@@ -51,6 +51,8 @@ jobs:
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused http://localhost:8000/health
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-connrefused http://localhost:8000/ready
       - name: Apply and verify PostgreSQL migrations
+        env:
+          POSTGRES_PASSWORD: ci-temporary-password
         run: |
           set -euo pipefail
           docker compose exec -T backend alembic -c alembic.ini upgrade head
