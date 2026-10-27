@@ -35,6 +35,7 @@ def test_verified_identity_authorized_only_for_its_database_scope(monkeypatch):
             organization_id="org-a", country_code="BD",
             role="supplier_admin", status="active"))
         session.commit()
+    monkeypatch.setenv('TOURGULL_AUDIT_HMAC_KEY', 'unit-test-only-secret-key-with-32-chars')
     monkeypatch.setattr(engine, "dispose", lambda: None)
     monkeypatch.setattr(api, "create_db_engine", lambda: engine)
     monkeypatch.setattr(api, "verify_bearer_token",
