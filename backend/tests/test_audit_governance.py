@@ -2,11 +2,12 @@
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from app.db import Base
 from app.security_audit_model import SecurityAuditEvent
 from app.audit_governance import preview_retention, apply_approved_retention
+from app.main import app
 
 NOW = datetime(2026, 10, 27, tzinfo=timezone.utc)
 
@@ -42,3 +43,8 @@ def test_invalid_retention_rejected(days):
 def test_naive_clock_rejected():
     with pytest.raises(ValueError):
         preview_retention(None, days=30, now=datetime(2026, 10, 27))
+
+
+def test_no_public_retention_or_audit_read_endpoints():
+    paths = {route.path for route in app.routes}
+    assert not any("/audit" in path or "/retention" in path for path in paths)
