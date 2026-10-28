@@ -4,6 +4,7 @@ A new generation must be granted only to an authorized, active monitoring run.
 The caller must coordinate that grant with its Redis lease and supervisor.
 No cross-store atomicity is claimed.
 """
+import logging
 from sqlalchemy import Integer, String, update, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 from app.db import Base
@@ -23,6 +24,7 @@ class MonitoringResult(Base):
 
 
 NAME = "audit-integrity"
+logger = logging.getLogger(__name__)
 
 
 def begin_monitoring_generation(session: Session) -> int:
@@ -83,11 +85,16 @@ def begin_authorized_monitoring_generation(session: Session, lease, *, ttl_secon
     from app.audit_monitor_lease import RedisMonitoringLease
 
     if not isinstance(lease, RedisMonitoringLease):
+        logger.warning("monitoring_generation_denied reason=invalid_authority")
         raise PermissionError("monitoring lease authority required")
     try:
         authorized = lease.renew("audit-monitor:single-run", ttl_seconds)
     except Exception as exc:
+        logger.warning("monitoring_generation_denied reason=redis_unavailable")
         raise PermissionError("monitoring lease unavailable") from exc
     if not authorized:
+        logger.warning("monitoring_generation_denied reason=lease_not_owned")
         raise PermissionError("monitoring lease not owned")
-    return begin_monitoring_generation(session)
+    generation = begin_monitoring_generation(session)
+    logger.info("monitoring_generation_granted generation=%d", generation)
+    return generation
