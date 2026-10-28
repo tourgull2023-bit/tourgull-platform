@@ -32,7 +32,7 @@ try:
     recovered = RedisMonitoringLease(redis)
     assert stale.claim("audit-monitor:single-run", 30)
     with Session(engine) as session:
-        generation_1 = fence.begin_monitoring_generation(session)
+        generation_1 = fence.begin_authorized_monitoring_generation(session, stale)
         assert generation_1 == 1
         assert fence.write_monitoring_result(session, generation_1, "original")
         session.commit()
@@ -44,7 +44,7 @@ try:
     assert recovered.claim("audit-monitor:single-run", 30)
     # Recovery must first advance the DB generation, then write results.
     with Session(engine) as session:
-        generation_2 = fence.begin_monitoring_generation(session)
+        generation_2 = fence.begin_authorized_monitoring_generation(session, recovered)
         assert generation_2 == 2
         assert fence.write_monitoring_result(session, generation_2, "recovered")
         session.commit()
@@ -61,7 +61,7 @@ try:
 
     # A failed generation grant rolls back; a still-live owner can recover.
     with Session(engine) as session:
-        assert fence.begin_monitoring_generation(session) == 3
+        assert fence.begin_authorized_monitoring_generation(session, recovered) == 3
         session.rollback()
     with Session(engine) as session:
         assert fence.write_monitoring_result(session, generation_2, "recovered")
