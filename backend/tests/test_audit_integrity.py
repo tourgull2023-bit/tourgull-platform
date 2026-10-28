@@ -12,6 +12,8 @@ from app.audit_integrity import verify_audit_event
 
 def test_persisted_audit_integrity_and_field_tampering(monkeypatch):
     monkeypatch.setenv("TOURGULL_AUDIT_HMAC_KEY", "test-audit-key-at-least-32-characters-long")
+    monkeypatch.setenv("TOURGULL_AUDIT_ACTIVE_KEY_ID", "v1")
+    monkeypatch.setenv("TOURGULL_AUDIT_KEY_v1", "test-audit-key-at-least-32-characters-long")
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     with Session(engine) as session:
@@ -36,25 +38,29 @@ def test_persisted_audit_integrity_and_field_tampering(monkeypatch):
 
 def test_unsigned_legacy_record_fails_closed(monkeypatch):
     monkeypatch.setenv("TOURGULL_AUDIT_HMAC_KEY", "test-audit-key-at-least-32-characters-long")
+    monkeypatch.setenv("TOURGULL_AUDIT_ACTIVE_KEY_ID", "v1")
+    monkeypatch.setenv("TOURGULL_AUDIT_KEY_v1", "test-audit-key-at-least-32-characters-long")
     event = SecurityAuditEvent(
         event_id="legacy", occurred_at=datetime.now(timezone.utc),
         event_type="access_check", outcome="deny", reason="unauthenticated",
-        subject_fingerprint=None, integrity_tag=None,
+        subject_fingerprint=None, integrity_key_id=None, integrity_tag=None,
     )
     assert not verify_audit_event(event)
 
 
 def test_missing_or_rotated_key_fails_verification(monkeypatch):
     monkeypatch.setenv("TOURGULL_AUDIT_HMAC_KEY", "test-audit-key-at-least-32-characters-long")
+    monkeypatch.setenv("TOURGULL_AUDIT_ACTIVE_KEY_ID", "v1")
+    monkeypatch.setenv("TOURGULL_AUDIT_KEY_v1", "test-audit-key-at-least-32-characters-long")
     event = SecurityAuditEvent(
         event_id="test", occurred_at=datetime.now(timezone.utc),
         event_type="access_check", outcome="deny", reason="unauthenticated",
-        subject_fingerprint=None,
+        subject_fingerprint=None, integrity_key_id="v1",
     )
     from app.audit_integrity import sign_audit_event
     event.integrity_tag = sign_audit_event(event)
     assert verify_audit_event(event)
-    monkeypatch.setenv("TOURGULL_AUDIT_HMAC_KEY", "another-audit-key-at-least-32-characters")
+    monkeypatch.setenv("TOURGULL_AUDIT_KEY_v1", "another-audit-key-at-least-32-characters")
     assert not verify_audit_event(event)
-    monkeypatch.delenv("TOURGULL_AUDIT_HMAC_KEY")
+    monkeypatch.delenv("TOURGULL_AUDIT_KEY_v1")
     assert not verify_audit_event(event)
