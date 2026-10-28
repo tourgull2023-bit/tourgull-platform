@@ -36,6 +36,8 @@ def test_verified_identity_authorized_only_for_its_database_scope(monkeypatch):
             role="supplier_admin", status="active"))
         session.commit()
     monkeypatch.setenv('TOURGULL_AUDIT_HMAC_KEY', 'unit-test-only-secret-key-with-32-chars')
+    monkeypatch.setenv('TOURGULL_AUDIT_ACTIVE_KEY_ID', 'v1')
+    monkeypatch.setenv('TOURGULL_AUDIT_KEY_v1', 'unit-test-only-secret-key-with-32-chars')
     monkeypatch.setattr(engine, "dispose", lambda: None)
     monkeypatch.setattr(api, "create_db_engine", lambda: engine)
     monkeypatch.setattr(api, "verify_bearer_token",
