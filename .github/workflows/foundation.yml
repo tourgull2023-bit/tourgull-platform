@@ -76,6 +76,12 @@ jobs:
         run: |
           set -euo pipefail
           docker compose exec -T -e TOURGULL_CROSS_STORE_TEST=1 backend python - < backend/tests/integration_real_cross_store.py
+      - name: Inject cross-store crash and rollback failures
+        env:
+          POSTGRES_PASSWORD: ci-temporary-password
+        run: |
+          set -euo pipefail
+          docker compose exec -T -e TOURGULL_FAILURE_INJECTION_TEST=1 backend python - < backend/tests/integration_failure_injection.py
       - name: Verify SvelteKit response
         run: |
           set -euo pipefail
