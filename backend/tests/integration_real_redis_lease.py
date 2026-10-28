@@ -53,6 +53,31 @@ class RealRedisLeaseTests(unittest.TestCase):
         self.assertTrue(second.renew("audit-monitor:single-run", 30))
         second.release("audit-monitor:single-run")
 
+    def test_connection_failure_and_recovery_fail_closed(self):
+        from redis.exceptions import ConnectionError as RedisConnectionError
+        broken = Redis.from_url("redis://127.0.0.1:1/0", socket_connect_timeout=0.2, socket_timeout=0.2)
+        unavailable = RedisMonitoringLease(broken)
+        with self.assertRaises(RedisConnectionError):
+            unavailable.claim("audit-monitor:single-run", 30)
+        self.assertIsNone(self.redis.get(RedisMonitoringLease.KEY))
+        recovered = RedisMonitoringLease(self.redis)
+        self.assertTrue(recovered.claim("audit-monitor:single-run", 30))
+        recovered.release("audit-monitor:single-run")
+
+    def test_crashed_worker_lease_expires_and_replacement_recovers(self):
+        crashed = RedisMonitoringLease(self.redis)
+        self.assertTrue(crashed.claim("audit-monitor:single-run", 30))
+        # Simulate a worker crash: no release or heartbeat. Shorten TTL in real Redis.
+        self.assertTrue(self.redis.expire(RedisMonitoringLease.KEY, 1))
+        replacement = RedisMonitoringLease(self.redis)
+        self.assertFalse(replacement.claim("audit-monitor:single-run", 30))
+        time.sleep(1.2)
+        self.assertTrue(replacement.claim("audit-monitor:single-run", 30))
+        self.assertFalse(crashed.renew("audit-monitor:single-run", 30))
+        crashed.release("audit-monitor:single-run")
+        self.assertTrue(replacement.renew("audit-monitor:single-run", 30))
+        replacement.release("audit-monitor:single-run")
+
     def test_rejects_invalid_claim_and_renew(self):
         lease = RedisMonitoringLease(self.redis)
         with self.assertRaises(ValueError):
