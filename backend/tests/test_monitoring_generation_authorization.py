@@ -82,3 +82,19 @@ def test_arbitrary_authority_denied(db):
             begin_authorized_monitoring_generation(s, object())
         s.rollback()
     assert generation(db) == 0
+
+def test_observability_reports_denial_and_grant_without_lease_token(db, caplog):
+    redis = RedisStub()
+    lease = RedisMonitoringLease(redis)
+    with caplog.at_level(logging.INFO, logger="app.monitoring_db_fence"):
+        with Session(db) as s:
+            with pytest.raises(PermissionError):
+                begin_authorized_monitoring_generation(s, lease)
+            s.rollback()
+        assert lease.claim(KEY, 30)
+        with Session(db) as s:
+            assert begin_authorized_monitoring_generation(s, lease) == 1
+            s.commit()
+    assert "monitoring_generation_denied reason=lease_not_owned" in caplog.text
+    assert "monitoring_generation_granted generation=1" in caplog.text
+    assert lease._token not in caplog.text
