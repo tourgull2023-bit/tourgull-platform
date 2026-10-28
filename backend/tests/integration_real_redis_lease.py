@@ -78,6 +78,51 @@ class RealRedisLeaseTests(unittest.TestCase):
         self.assertTrue(replacement.renew("audit-monitor:single-run", 30))
         replacement.release("audit-monitor:single-run")
 
+    def test_concurrent_claims_have_exactly_one_owner(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+
+        contenders = [RedisMonitoringLease(self.redis) for _ in range(12)]
+        start = Barrier(len(contenders))
+        def attempt(lease):
+            start.wait(timeout=10)
+            return lease.claim("audit-monitor:single-run", 30)
+
+        with ThreadPoolExecutor(max_workers=len(contenders)) as pool:
+            outcomes = list(pool.map(attempt, contenders))
+        self.assertEqual(outcomes.count(True), 1)
+        self.assertEqual(outcomes.count(False), len(contenders) - 1)
+        winner = contenders[outcomes.index(True)]
+        self.assertTrue(winner.renew("audit-monitor:single-run", 30))
+        winner.release("audit-monitor:single-run")
+        self.assertIsNone(self.redis.get(RedisMonitoringLease.KEY))
+
+    def test_concurrent_recovery_rejects_stale_owner(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+
+        stale = RedisMonitoringLease(self.redis)
+        self.assertTrue(stale.claim("audit-monitor:single-run", 30))
+        self.assertTrue(self.redis.expire(RedisMonitoringLease.KEY, 1))
+        time.sleep(1.2)
+        contenders = [RedisMonitoringLease(self.redis) for _ in range(8)]
+        start = Barrier(len(contenders))
+        def recover(lease):
+            start.wait(timeout=10)
+            return lease.claim("audit-monitor:single-run", 30)
+
+        with ThreadPoolExecutor(max_workers=len(contenders)) as pool:
+            outcomes = list(pool.map(recover, contenders))
+        self.assertEqual(outcomes.count(True), 1)
+        winner = contenders[outcomes.index(True)]
+        self.assertFalse(stale.renew("audit-monitor:single-run", 30))
+        stale.release("audit-monitor:single-run")
+        self.assertTrue(winner.renew("audit-monitor:single-run", 30))
+        for i, contender in enumerate(contenders):
+            if i != outcomes.index(True):
+                self.assertFalse(contender.renew("audit-monitor:single-run", 30))
+        winner.release("audit-monitor:single-run")
+
     def test_rejects_invalid_claim_and_renew(self):
         lease = RedisMonitoringLease(self.redis)
         with self.assertRaises(ValueError):
