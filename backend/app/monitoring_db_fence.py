@@ -71,3 +71,23 @@ def write_monitoring_result(session: Session, generation: int, value: str) -> bo
         existing.value = value
     session.flush()
     return True
+
+
+def begin_authorized_monitoring_generation(session: Session, lease, *, ttl_seconds: int = 30) -> int:
+    """Fail closed before granting a DB generation unless the live Redis lease renews.
+
+    This is a pre-grant authorization check, not a distributed transaction:
+    lease ownership can change after renewal. External side effects still
+    require their own durable fencing/idempotency protocol.
+    """
+    from app.audit_monitor_lease import RedisMonitoringLease
+
+    if not isinstance(lease, RedisMonitoringLease):
+        raise PermissionError("monitoring lease authority required")
+    try:
+        authorized = lease.renew("audit-monitor:single-run", ttl_seconds)
+    except Exception as exc:
+        raise PermissionError("monitoring lease unavailable") from exc
+    if not authorized:
+        raise PermissionError("monitoring lease not owned")
+    return begin_monitoring_generation(session)
