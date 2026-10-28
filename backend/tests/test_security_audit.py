@@ -10,6 +10,8 @@ import pytest
 
 def test_audit_records_decision_without_raw_identity(monkeypatch):
     monkeypatch.setenv("TOURGULL_AUDIT_HMAC_KEY", "test-only-audit-secret-at-least-32-bytes")
+    monkeypatch.setenv("TOURGULL_AUDIT_ACTIVE_KEY_ID", "v1")
+    monkeypatch.setenv("TOURGULL_AUDIT_KEY_v1", "test-only-audit-secret-at-least-32-bytes")
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     identity = AuthenticatedIdentity("private-user-id", "https://issuer.example")
