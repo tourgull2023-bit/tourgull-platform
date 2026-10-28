@@ -15,5 +15,6 @@ class SecurityAuditEvent(Base):
     outcome: Mapped[str] = mapped_column(String(8), nullable=False)
     reason: Mapped[str] = mapped_column(String(64), nullable=False)
     subject_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    integrity_key_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     integrity_tag: Mapped[str | None] = mapped_column(String(64), nullable=True)  # legacy records remain unverified
     # No raw token, issuer, subject ID, organization ID or request body is persisted.
