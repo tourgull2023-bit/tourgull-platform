@@ -6,6 +6,7 @@ from app.db import Base, database_url
 from app import models  # noqa: F401 - register model metadata
 from app import trusted_membership_model  # noqa: F401 - register membership metadata
 from app import security_audit_model  # noqa: F401 - register security audit metadata
+from app import monitoring_db_fence  # noqa: F401 - register monitoring fence metadata
 
 config = context.config
 if config.config_file_name and config.get_section(config.config_ini_section, {}).get('loggers'):
