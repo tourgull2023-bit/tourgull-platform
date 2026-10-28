@@ -123,6 +123,35 @@ class RealRedisLeaseTests(unittest.TestCase):
                 self.assertFalse(contender.renew("audit-monitor:single-run", 30))
         winner.release("audit-monitor:single-run")
 
+    def test_guarded_result_write_rejects_stale_owner_atomically(self):
+        destination = "tourgull:security-monitor:result:ci-fencing"
+        self.addCleanup(self.redis.delete, destination)
+        self.redis.delete(destination)
+        stale = RedisMonitoringLease(self.redis)
+        replacement = RedisMonitoringLease(self.redis)
+        self.assertFalse(stale.guarded_set("audit-monitor:single-run", destination, "unowned"))
+        self.assertTrue(stale.claim("audit-monitor:single-run", 30))
+        self.assertTrue(stale.guarded_set("audit-monitor:single-run", destination, "first"))
+        self.assertTrue(self.redis.expire(RedisMonitoringLease.KEY, 1))
+        time.sleep(1.2)
+        self.assertTrue(replacement.claim("audit-monitor:single-run", 30))
+        self.assertFalse(stale.guarded_set("audit-monitor:single-run", destination, "stale"))
+        self.assertEqual(self.redis.get(destination), b"first")
+        self.assertTrue(replacement.guarded_set("audit-monitor:single-run", destination, "replacement"))
+        self.assertEqual(self.redis.get(destination), b"replacement")
+        stale.release("audit-monitor:single-run")
+        self.assertTrue(replacement.renew("audit-monitor:single-run", 30))
+        replacement.release("audit-monitor:single-run")
+
+    def test_guarded_result_write_rejects_invalid_destination(self):
+        lease = RedisMonitoringLease(self.redis)
+        self.assertTrue(lease.claim("audit-monitor:single-run", 30))
+        with self.assertRaises(ValueError):
+            lease.guarded_set("audit-monitor:single-run", RedisMonitoringLease.KEY, "unsafe")
+        with self.assertRaises(ValueError):
+            lease.guarded_set("audit-monitor:single-run", "tourgull:security-monitor:result:", "unsafe")
+        lease.release("audit-monitor:single-run")
+
     def test_rejects_invalid_claim_and_renew(self):
         lease = RedisMonitoringLease(self.redis)
         with self.assertRaises(ValueError):
