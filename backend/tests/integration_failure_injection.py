@@ -53,7 +53,7 @@ try:
     active = RedisMonitoringLease(redis)
     assert active.claim(key, 30)
     with Session(engine) as session:
-        gen1 = fence.begin_monitoring_generation(session)
+        gen1 = fence.begin_authorized_monitoring_generation(session, active)
         assert gen1 == 1
         assert fence.write_monitoring_result(session, gen1, "committed")
         session.commit()
@@ -68,14 +68,14 @@ try:
 
     # Crash point B: grant and result staged but DB transaction rolled back.
     with Session(engine) as session:
-        assert fence.begin_monitoring_generation(session) == 2
+        assert fence.begin_authorized_monitoring_generation(session, active) == 2
         assert fence.write_monitoring_result(session, 2, "never-committed")
         session.rollback()
     assert state() == (1, (1, "committed"))
 
     # Crash point C: DB grant committed, result not yet written.
     with Session(engine) as session:
-        gen2 = fence.begin_monitoring_generation(session)
+        gen2 = fence.begin_authorized_monitoring_generation(session, active)
         assert gen2 == 2
         session.commit()
     assert state() == (2, (1, "committed"))
@@ -89,7 +89,7 @@ try:
     assert replacement.claim(key, 30)
     assert not active.renew(key, 30)
     with Session(engine) as session:
-        gen3 = fence.begin_monitoring_generation(session)
+        gen3 = fence.begin_authorized_monitoring_generation(session, replacement)
         assert gen3 == 3
         assert fence.write_monitoring_result(session, gen3, "recovered")
         session.commit()
