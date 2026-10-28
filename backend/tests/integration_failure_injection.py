@@ -59,6 +59,13 @@ try:
         session.commit()
     assert state() == (1, (1, "committed"))
 
+    # Idempotent retry succeeds; conflicting duplicate is rejected without mutation.
+    with Session(engine) as session:
+        assert fence.write_monitoring_result(session, gen1, "committed")
+        assert not fence.write_monitoring_result(session, gen1, "conflicting-retry")
+        session.commit()
+    assert state() == (1, (1, "committed"))
+
     # Crash point B: grant and result staged but DB transaction rolled back.
     with Session(engine) as session:
         assert fence.begin_monitoring_generation(session) == 2
@@ -87,6 +94,11 @@ try:
         assert fence.write_monitoring_result(session, gen3, "recovered")
         session.commit()
     assert not fence_write_stale(gen2, "stale-after-takeover")
+    assert state() == (3, (3, "recovered"))
+    with Session(engine) as session:
+        assert fence.write_monitoring_result(session, gen3, "recovered")
+        assert not fence.write_monitoring_result(session, gen3, "duplicate-conflict")
+        session.commit()
     assert state() == (3, (3, "recovered"))
     abandoned.release(key)
     active.release(key)
