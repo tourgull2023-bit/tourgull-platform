@@ -43,7 +43,7 @@ def begin_monitoring_generation(session: Session) -> int:
 
 
 def write_monitoring_result(session: Session, generation: int, value: str) -> bool:
-    """Write only while the supplied generation is current in the same DB transaction.
+    """Write at most one distinct result per generation in the same DB transaction.
 
     The UPDATE locks the fence row until commit, serializing it against new
     generation grants. No external webhook or Redis side effect is fenced.
@@ -63,6 +63,9 @@ def write_monitoring_result(session: Session, generation: int, value: str) -> bo
     existing = session.get(MonitoringResult, NAME)
     if existing is None:
         session.add(MonitoringResult(name=NAME, generation=generation, value=value))
+    elif existing.generation == generation:
+        # Identical retries succeed without rewriting; conflicting retries fail closed.
+        return existing.value == value
     else:
         existing.generation = generation
         existing.value = value
