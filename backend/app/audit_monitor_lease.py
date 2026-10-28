@@ -50,3 +50,30 @@ return 0
         self._token = None
         if token is not None:
             self._client.eval(self._RELEASE, 1, self.KEY, token)
+
+    _GUARDED_SET = """
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then
+  return 0
+end
+redis.call('SET', KEYS[2], ARGV[2])
+return 1
+"""
+
+    def guarded_set(self, key: str, destination: str, value: str) -> bool:
+        """Atomically fence a Redis-only monitoring result by live lease ownership.
+
+        Does NOT fence database commits, webhooks, or other external side effects.
+        """
+        if key != "audit-monitor:single-run":
+            raise ValueError("invalid monitoring lease key")
+        if not isinstance(destination, str) or not destination.startswith(
+            "tourgull:security-monitor:result:"
+        ) or len(destination) > 200 or destination == "tourgull:security-monitor:result:":
+            raise ValueError("invalid monitoring result destination")
+        if not isinstance(value, str) or len(value) > 4096:
+            raise ValueError("invalid monitoring result value")
+        if self._token is None:
+            return False
+        return self._client.eval(
+            self._GUARDED_SET, 2, self.KEY, destination, self._token, value
+        ) == 1
