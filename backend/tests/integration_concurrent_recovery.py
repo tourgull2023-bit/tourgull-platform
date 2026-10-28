@@ -47,7 +47,7 @@ try:
     assert all(not owner.renew(key, 30) for owner, granted in attempts if not granted)
 
     with Session(engine) as session:
-        old_generation = fence.begin_monitoring_generation(session)
+        old_generation = fence.begin_authorized_monitoring_generation(session, old_owner)
         assert old_generation == 1
         assert fence.write_monitoring_result(session, old_generation, "original")
         session.commit()
@@ -63,7 +63,7 @@ try:
     assert not old_owner.renew(key, 30)
     assert new_owner.renew(key, 30)
     with Session(engine) as session:
-        generation = fence.begin_monitoring_generation(session)
+        generation = fence.begin_authorized_monitoring_generation(session, new_owner)
         assert generation == 2
         session.commit()
 
