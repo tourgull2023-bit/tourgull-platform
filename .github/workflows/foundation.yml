@@ -82,6 +82,12 @@ jobs:
         run: |
           set -euo pipefail
           docker compose exec -T -e TOURGULL_FAILURE_INJECTION_TEST=1 backend python - < backend/tests/integration_failure_injection.py
+      - name: Verify concurrent Redis takeover and PostgreSQL retry fencing
+        env:
+          POSTGRES_PASSWORD: ci-temporary-password
+        run: |
+          set -euo pipefail
+          docker compose exec -T -e TOURGULL_CONCURRENT_RECOVERY_TEST=1 backend python - < backend/tests/integration_concurrent_recovery.py
       - name: Verify SvelteKit response
         run: |
           set -euo pipefail
