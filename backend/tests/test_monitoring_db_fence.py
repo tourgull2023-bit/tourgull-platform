@@ -61,3 +61,17 @@ def test_result_is_not_written_before_generation_granted(engine):
     with Session(engine) as session:
         assert not write_monitoring_result(session, 1, "premature")
         assert session.get(MonitoringResult, NAME) is None
+
+
+def test_same_generation_retry_is_idempotent_and_conflict_denied(engine):
+    with Session(engine) as session:
+        generation = begin_monitoring_generation(session)
+        assert write_monitoring_result(session, generation, "original")
+        session.commit()
+    with Session(engine) as session:
+        assert write_monitoring_result(session, generation, "original")
+        assert not write_monitoring_result(session, generation, "conflicting")
+        session.commit()
+    with Session(engine) as session:
+        row = session.get(MonitoringResult, NAME)
+        assert (row.generation, row.value) == (generation, "original")
