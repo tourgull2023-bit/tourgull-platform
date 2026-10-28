@@ -32,7 +32,7 @@ try:
         assert fence.begin_monitoring_generation(session) == 2
         session.rollback()
     with Session(engine) as session:
-        assert fence.write_monitoring_result(session, initial, "after-rollback")
+        assert fence.write_monitoring_result(session, initial, "initial")
         session.commit()
 
     # Concurrent writer holds row lock; replacement grant must wait until commit.
@@ -42,7 +42,7 @@ try:
     def old_writer():
         try:
             with Session(engine) as session:
-                assert fence.write_monitoring_result(session, initial, "old-committed")
+                assert fence.write_monitoring_result(session, initial, "initial")
                 acquired.set()
                 assert release.wait(timeout=8)
                 session.commit()
