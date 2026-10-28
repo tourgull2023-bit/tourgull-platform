@@ -63,7 +63,7 @@ jobs:
           POSTGRES_PASSWORD: ci-temporary-password
         run: |
           set -euo pipefail
-          docker compose exec -T -e TOURGULL_REDIS_INTEGRATION_TEST=1 backend python -m unittest discover -s tests -p integration_real_redis_lease.py -v
+          docker compose exec -T -e TOURGULL_REDIS_INTEGRATION_TEST=1 backend python - < backend/tests/integration_real_redis_lease.py
       - name: Verify SvelteKit response
         run: |
           set -euo pipefail
