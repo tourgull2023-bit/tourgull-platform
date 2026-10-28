@@ -4,7 +4,7 @@ import hmac
 import os
 from uuid import uuid4
 from datetime import datetime, timezone
-from app.audit_integrity import sign_audit_event
+from app.audit_integrity import sign_audit_event, active_key_id
 from sqlalchemy.orm import Session
 from app.authentication import AuthenticatedIdentity
 from app.access_policy import AccessDecision
@@ -40,5 +40,6 @@ def record_access_decision(session: Session, identity: AuthenticatedIdentity, de
         reason=decision.reason if decision.reason in _ALLOWED_REASONS else "invalid_context",
         subject_fingerprint=fingerprint,
     )
+    event.integrity_key_id = active_key_id()
     event.integrity_tag = sign_audit_event(event)
     session.add(event)
