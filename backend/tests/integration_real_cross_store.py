@@ -64,7 +64,8 @@ try:
         assert fence.begin_monitoring_generation(session) == 3
         session.rollback()
     with Session(engine) as session:
-        assert fence.write_monitoring_result(session, generation_2, "after-rollback")
+        assert fence.write_monitoring_result(session, generation_2, "recovered")
+        assert not fence.write_monitoring_result(session, generation_2, "after-rollback")
         session.commit()
 
     # Redis outage must fail closed; no new DB grant should be attempted.
