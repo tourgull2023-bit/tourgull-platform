@@ -78,6 +78,19 @@ try:
         pass
     with engine.connect() as conn:
         assert conn.execute(text("SELECT generation FROM monitoring_fences WHERE name = :n"), {"n": fence.NAME}).scalar_one() == 2
+    # Active owner with an unreachable Redis server cannot authorize a DB grant.
+    # PostgreSQL remains live and its durable generation must not advance.
+    outage_lease = RedisMonitoringLease(disconnected)
+    outage_lease._token = recovered._token  # simulate connectivity loss after claim
+    with Session(engine) as session:
+        try:
+            fence.begin_authorized_monitoring_generation(session, outage_lease)
+            raise AssertionError("outage incorrectly authorized DB generation")
+        except PermissionError as exc:
+            assert "unavailable" in str(exc)
+            session.rollback()
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT generation FROM monitoring_fences WHERE name = :n"), {"n": fence.NAME}).scalar_one() == 2
     recovered.release("audit-monitor:single-run")
     assert redis.get(lease_key) is None
     print("Cross-store recovery: lease expiry, stale rejection, rollback and fail-closed outage passed")
