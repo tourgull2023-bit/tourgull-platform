@@ -88,6 +88,12 @@ jobs:
         run: |
           set -euo pipefail
           docker compose exec -T -e TOURGULL_CONCURRENT_RECOVERY_TEST=1 backend python - < backend/tests/integration_concurrent_recovery.py
+      - name: Verify monitoring Redis outage, takeover and recovery diagnostics
+        env:
+          POSTGRES_PASSWORD: ci-temporary-password
+        run: |
+          set -euo pipefail
+          docker compose exec -T -e TOURGULL_MONITOR_OUTAGE_TEST=1 backend python - < backend/tests/integration_monitor_outage.py
       - name: Verify SvelteKit response
         run: |
           set -euo pipefail
